@@ -42,7 +42,8 @@ func (err ErrorPair) Error() string {
 
 // Apply applies all migrations in a single transaction. It returns the number
 // of applied migrations and error if any.
-func (sch *Schema) Apply(migrations []Migration) (n int, err error) {
+// isDry flag identify to not migrate just show
+func (sch *Schema) Apply(migrations []Migration, isDry bool) (n int, err error) {
 	tx, err := sch.db.Begin()
 	if err != nil {
 		return 0, err
@@ -66,14 +67,15 @@ func (sch *Schema) Apply(migrations []Migration) (n int, err error) {
 	q := `INSERT INTO "` + sch.schemaName + `"` + `."` + sch.migTableName + `" (name, applied_at) ` +
 		`VALUES ($1, $2)`
 	for _, m := range migrations {
-		err = m.Apply(tx)
+		err = m.Apply(tx, isDry)
 		if err != nil {
 			return 0, err
 		}
-
-		_, err = tx.Exec(q, m.Name(), now)
-		if err != nil {
-			return 0, err
+		if !isDry {
+			_, err = tx.Exec(q, m.Name(), now)
+			if err != nil {
+				return 0, err
+			}
 		}
 
 		n++
@@ -84,7 +86,8 @@ func (sch *Schema) Apply(migrations []Migration) (n int, err error) {
 
 // Rollback rolls back all migrations in a single transaction. It returns the
 // number of rolled back migrations and error if any.
-func (sch *Schema) Rollback(migrations []Migration) (n int, err error) {
+// isDry flag identify to not migrate just show
+func (sch *Schema) Rollback(migrations []Migration, isDry bool) (n int, err error) {
 	tx, err := sch.db.Begin()
 	if err != nil {
 		return 0, err
@@ -107,16 +110,16 @@ func (sch *Schema) Rollback(migrations []Migration) (n int, err error) {
 	q := `DELETE FROM "` + sch.schemaName + `"` + `."` + sch.migTableName + `" ` +
 		`WHERE name = $1`
 	for _, m := range migrations {
-		err = m.Rollback(tx)
+		err = m.Rollback(tx, isDry)
 		if err != nil {
 			return 0, err
 		}
-
-		_, err = tx.Exec(q, m.Name())
-		if err != nil {
-			return 0, err
+		if !isDry {
+			_, err = tx.Exec(q, m.Name())
+			if err != nil {
+				return 0, err
+			}
 		}
-
 		n++
 	}
 

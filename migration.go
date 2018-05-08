@@ -4,9 +4,10 @@ import "database/sql"
 
 // Migration is a migration interface. A migration can apply itself, rollback
 // itself and has a unique name.
+// isDry flag identify to not migrate just show
 type Migration interface {
-	Apply(tx *sql.Tx) error
-	Rollback(tx *sql.Tx) error
+	Apply(tx *sql.Tx, isDry bool) error
+	Rollback(tx *sql.Tx, isDry bool) error
 
 	Name() string
 }
@@ -14,18 +15,18 @@ type Migration interface {
 // Struct is a simple implementation of the Migration interface.
 type Struct struct {
 	NameString   string
-	ApplyFunc    func(tx *sql.Tx) error
-	RollbackFunc func(tx *sql.Tx) error
+	ApplyFunc    func(tx *sql.Tx, isDry bool) error
+	RollbackFunc func(tx *sql.Tx, isDry bool) error
 }
 
 // Apply implements Migration for Struct.
-func (s Struct) Apply(tx *sql.Tx) error {
-	return s.ApplyFunc(tx)
+func (s Struct) Apply(tx *sql.Tx, isDry bool) error {
+	return s.ApplyFunc(tx, isDry)
 }
 
 // Rollback implements Migration for Struct.
-func (s Struct) Rollback(tx *sql.Tx) error {
-	return s.RollbackFunc(tx)
+func (s Struct) Rollback(tx *sql.Tx, isDry bool) error {
+	return s.RollbackFunc(tx, isDry)
 }
 
 // Name implements Migration for Struct.

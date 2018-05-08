@@ -16,7 +16,7 @@ This is a work in progress. As of now this library lacks:
 var migrations = []migration.Migration{
 	migration.Struct{
 		NameString: "20161114105737_init",
-		ApplyFunc: func(tx *sql.Tx) error {
+		ApplyFunc: func(tx *sql.Tx, isDry bool) error {
 			var err error
 			var q string
 			q = `CREATE TABLE IF NOT EXISTS users (` +
@@ -26,18 +26,28 @@ var migrations = []migration.Migration{
 				`, created_at TIMESTAMP NOT NULL` +
 				`, updated_at TIMESTAMP NOT NULL` +
 				`)`
-			_, err = tx.Exec(q)
+			fmt.Printf("-- Apply %s --\n", name)
+			if !isDry {
+				_, err = tx.Exec(q)
+			} else {
+				fmt.Printf("%s\n\n",q)
+			}
 			if err != nil {
 				return err
 			}
 
 			return nil
 		},
-		RollbackFunc: func(tx *sql.Tx) error {
+		RollbackFunc: func(tx *sql.Tx, isDry bool) error {
 			var err error
 			var q string
 			q = `DROP TABLE rose.channels`
-			_, err = tx.Exec(q)
+			fmt.Printf("-- Rollback %s --\n", name)
+			if !isDry {
+				_, err = tx.Exec(q)
+			} else {
+				fmt.Printf("%s\n\n",q)
+			}
 			if err != nil {
 				return err
 			}
