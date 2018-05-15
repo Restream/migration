@@ -82,6 +82,56 @@ func (sch *Schema) Apply(migrations []Migration) (n int, err error) {
 	return n, nil
 }
 
+// ApplyEach applies each migrations in a separate transaction. It returns the number
+// of applied migrations and error if any.
+func (sch *Schema) ApplyEach(migrations []Migration) (n int, err error) {
+	now := time.Now()
+	q := `INSERT INTO "` + sch.schemaName + `"` + `."` + sch.migTableName + `" (name, applied_at) ` +
+		`VALUES ($1, $2)`
+	for _, m := range migrations {
+		err := func() (err error) {
+			var tx *sql.Tx
+			tx, err = sch.db.Begin()
+			if err != nil {
+				return err
+			}
+
+			defer func() {
+				if err == nil {
+					err = tx.Commit()
+				} else {
+					rbErr := tx.Rollback()
+					if rbErr != nil {
+						err = ErrorPair{
+							Err1: err,
+							Err2: rbErr,
+						}
+					}
+				}
+			}()
+
+			err = m.Apply(tx)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.Exec(q, m.Name(), now)
+			if err != nil {
+				return err
+			}
+
+			n++
+			return nil
+		}()
+
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return n, nil
+}
+
 // Rollback rolls back all migrations in a single transaction. It returns the
 // number of rolled back migrations and error if any.
 func (sch *Schema) Rollback(migrations []Migration) (n int, err error) {
