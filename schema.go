@@ -82,15 +82,16 @@ func (sch *Schema) Apply(migrations []Migration) (n int, err error) {
 	return n, nil
 }
 
-// ApplyEach applies each migrations in a separate transaction. It returns the number
+// ApplyEach applies each migration in a separate transaction. It returns the number
 // of applied migrations and error if any.
 func (sch *Schema) ApplyEach(migrations []Migration) (n int, err error) {
 	now := time.Now()
 	q := `INSERT INTO "` + sch.schemaName + `"` + `."` + sch.migTableName + `" (name, applied_at) ` +
 		`VALUES ($1, $2)`
+	var tx *sql.Tx
+
 	for _, m := range migrations {
-		err := func() (err error) {
-			var tx *sql.Tx
+		err = func() (err error) {
 			tx, err = sch.db.Begin()
 			if err != nil {
 				return err
@@ -125,7 +126,7 @@ func (sch *Schema) ApplyEach(migrations []Migration) (n int, err error) {
 		}()
 
 		if err != nil {
-			return 0, err
+			return n, err
 		}
 	}
 
@@ -168,6 +169,56 @@ func (sch *Schema) Rollback(migrations []Migration) (n int, err error) {
 		}
 
 		n++
+	}
+
+	return n, nil
+}
+
+// RollbackEach rolls back each migration in a separate transaction. It returns the
+// number of rolled back migrations and error if any.
+func (sch *Schema) RollbackEach(migrations []Migration) (n int, err error) {
+	q := `DELETE FROM "` + sch.schemaName + `"` + `."` + sch.migTableName + `" ` +
+		`WHERE name = $1`
+	var tx *sql.Tx
+
+	for _, m := range migrations {
+		err = func() (err error) {
+			tx, err = sch.db.Begin()
+			if err != nil {
+				return err
+			}
+
+			defer func() {
+				if err == nil {
+					err = tx.Commit()
+				} else {
+					rbErr := tx.Rollback()
+					if rbErr != nil {
+						err = ErrorPair{
+							Err1: err,
+							Err2: rbErr,
+						}
+					}
+				}
+			}()
+
+			err = m.Rollback(tx)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.Exec(q, m.Name())
+			if err != nil {
+				return err
+			}
+
+			n++
+			return nil
+		}()
+
+		if err != nil {
+			return n, err
+		}
 	}
 
 	return n, nil
