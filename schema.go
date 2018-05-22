@@ -227,8 +227,7 @@ func (sch *Schema) RollbackEach(migrations []Migration) (n int, err error) {
 // Init creates a migrations table in the database.
 func (sch *Schema) Init() error {
 	var err error
-	var q string
-	q = `CREATE SCHEMA IF NOT EXISTS "` + sch.schemaName + `"`
+	q := `CREATE SCHEMA IF NOT EXISTS "` + sch.schemaName + `"`
 	_, err = sch.db.Exec(q)
 	if err != nil {
 		return err
@@ -237,10 +236,7 @@ func (sch *Schema) Init() error {
 	q = `CREATE TABLE IF NOT EXISTS "` + sch.schemaName + `"` + `."` + sch.migTableName + `" ` +
 		`(name TEXT UNIQUE, applied_at TIMESTAMP)`
 	_, err = sch.db.Exec(q)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ErrNameNotUnique is returned whenever a non-unique migration name is found.
@@ -275,10 +271,8 @@ func (sch *Schema) FindUnapplied(migrations []Migration) (res []Migration, err e
 		return nil, nil
 	}
 
-	var names []string
 	migByName := map[string]Migration{}
 	for _, m := range migrations {
-		names = append(names, m.Name())
 		if migByName[m.Name()] != nil {
 			return nil, ErrNameNotUnique{Name: m.Name()}
 		}
@@ -351,10 +345,8 @@ func (sch *Schema) FindUnrolled(migrations []Migration) (res []Migration, err er
 		return nil, nil
 	}
 
-	var names []string
 	migByName := map[string]Migration{}
 	for _, m := range migrations {
-		names = append(names, m.Name())
 		if migByName[m.Name()] != nil {
 			return nil, ErrNameNotUnique{Name: m.Name()}
 		}
